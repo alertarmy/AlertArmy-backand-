@@ -1,85 +1,50 @@
-const express = require("express");
-const axios = require("axios");
+import express from "express";
+import axios from "axios";
+
 const app = express();
 app.use(express.json());
 
-const PG_CLIENT_ID = process.env.CF_CLIENT_ID;
-const PG_CLIENT_SECRET = process.env.CF_CLIENT_SECRET;
-const PAYOUT_CLIENT_ID = process.env.CF_PAYOUT_CLIENT_ID;
-const PAYOUT_CLIENT_SECRET = process.env.CF_PAYOUT_CLIENT_SECRET;
+const CASHFREE_API_ID = process.env.CASHFREE_API_ID;
+const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
+const BASE_URL = "https://sandbox.cashfree.com/pg"; // live ke liye: https://api.cashfree.com/pg
 
 app.post("/create-order", async (req, res) => {
   try {
-    const { amount, customerId, email, phone } = req.body;
-    const orderId = "order_" + Date.now();
+    const { orderId, orderAmount, customerName, customerEmail, customerPhone } = req.body;
 
     const response = await axios.post(
-      "https://api.cashfree.com/pg/orders",
+      `${BASE_URL}/orders`,
       {
         order_id: orderId,
-        order_amount: amount,
+        order_amount: orderAmount,
         order_currency: "INR",
         customer_details: {
-          customer_id: customerId,
-          customer_email: email,
-          customer_phone: phone,
+          customer_id: customerPhone,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
         },
       },
       {
         headers: {
-          "Content-Type": "application/json",
+          "x-client-id": CASHFREE_API_ID,
+          "x-client-secret": CASHFREE_SECRET_KEY,
           "x-api-version": "2022-09-01",
-          "x-client-id": PG_CLIENT_ID,
-          "x-client-secret": PG_CLIENT_SECRET,
-        },
-      }
-    );
-
-    res.json(response.data);
-  } catch (err) {
-    res.status(500).send("Order creation failed");
-  }
-});
-
-app.post("/withdraw", async (req, res) => {
-  try {
-    const { transferId, amount, upiId } = req.body;
-
-    const authResp = await axios.post(
-      "https://payout-api.cashfree.com/payout/v1/authorize",
-      {},
-      {
-        headers: {
-          "X-Client-Id": PAYOUT_CLIENT_ID,
-          "X-Client-Secret": PAYOUT_CLIENT_SECRET,
-        },
-      }
-    );
-    const token = authResp.data.data.token;
-
-    const response = await axios.post(
-      "https://payout-api.cashfree.com/payout/v1/requestTransfer",
-      {
-        beneId: "user_" + transferId,
-        transferId: transferId,
-        amount: String(amount),
-        transferMode: "upi",
-        remarks: "Tournament winnings",
-        upi: { vpa: upiId },
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       }
     );
 
     res.json(response.data);
-  } catch (err) {
-    res.status(500).send("Withdrawal failed");
+  } catch (error) {
+    res.status(500).json({ error: error.response?.data || error.message });
   }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.get("/", (req, res) => {
+  res.send("✅ Cashfree backend is running");
+});
+
+app.listen(10000, () => {
+  console.log("✅ Server running on port 10000");
+});
